@@ -12,6 +12,10 @@ bool jetCollision = false;
 float explosionX = 0.0f;
 float explosionY = 0.0f;
 float explosionRadius = 0.0f;
+bool parachuteActive = false;
+bool parachuteLanded = false;
+float parachuteX = 0.0f;
+float parachuteY = 0.0f;
 void fillCircle(float cx, float cy, float r);
 void drawGrass(float x, float y, float scale);
 void drawBush(float x, float y, float scale);
@@ -283,11 +287,11 @@ void drawBirds()
     };
 
     glLineWidth(2.0f);
-    drawBird(15.0f, 34.0f, 1.2f);
-    drawBird(19.0f, 35.2f, 0.9f);
-    drawBird(24.0f, 33.8f, 1.1f);
-    drawBird(30.0f, 36.0f, 1.0f);
-    drawBird(36.0f, 34.6f, 0.8f);
+    drawBird(21.0f, 34.8f, 0.7f);
+    drawBird(22.8f, 35.4f, 0.55f);
+    drawBird(24.3f, 34.9f, 0.65f);
+    drawBird(26.0f, 35.7f, 0.6f);
+    drawBird(27.5f, 35.1f, 0.5f);
     glLineWidth(1.0f);
 }
 
@@ -296,33 +300,36 @@ void drawStones()
 {
 }
 
-void drawParachute()
+void drawParachute(float x, float y, float scale)
 {
-
+    glPushMatrix();
+    glTranslatef(x, y, 0.0f);
+    glScalef(scale, scale, 1.0f);
 
     glColor3f(1.0f, 0.30f, 0.30f);
-    drawhalfCircle(45.0f, 41.0f, 3.0f);
+    drawhalfCircle(0.0f, 0.0f, 3.0f);
     glColor3f(0.80f, 0.30f, 0.60f);
-    drawEllipse(45.0, 41, 3.0, 1.0);
+    drawEllipse(0.0f, 0.0f, 3.0f, 1.0f);
     glColor3f(1.0f, 1.0f, 1.0f);
 
-    glRectd(44.0,  39.0 , 46.0, 38.0);
+    glRectd(-1.0f, -2.0f, 1.0f, -3.0f);
 
     //connect lines to the Circumference of the Ellipse
     glBegin(GL_LINES);
-    glVertex2f(43.2f, 40.2f);
-    glVertex2f(44.0f, 39.0f);
+    glVertex2f(-1.8f, -0.8f);
+    glVertex2f(-1.0f, -2.0f);
 
-    glVertex2f(44.3f, 40.0f);
-    glVertex2f(44.7f, 39.0f);
+    glVertex2f(-0.7f, -1.0f);
+    glVertex2f(-0.3f, -2.0f);
 
-    glVertex2f(45.7f, 40.0f);
-    glVertex2f(45.3f, 39.0f);
+    glVertex2f(0.7f, -1.0f);
+    glVertex2f(0.3f, -2.0f);
 
-    glVertex2f(46.8f, 40.2f);
-    glVertex2f(46.0f, 39.0f);
+    glVertex2f(1.8f, -0.8f);
+    glVertex2f(1.0f, -2.0f);
 
     glEnd();
+    glPopMatrix();
 }
 
 
@@ -437,9 +444,9 @@ void drawTree(float x, float y, float scale)
 
     // Trunk
     glColor3f(0.42f, 0.24f, 0.07f);
-    fillRect(-0.7f, -4.5f, 1.4f, 4.8f);
+    fillRect(-0.7f, -4.5f, 1.4f, 6.8f);
     glColor3f(0.28f, 0.14f, 0.03f);
-    fillRect(0.1f, -4.5f, 0.6f, 4.8f); // shadow strip on right
+    fillRect(0.1f, -4.5f, 0.6f, 6.8f); // shadow strip on right
 
     // Bark texture lines
     glColor3f(0.22f, 0.11f, 0.02f);
@@ -454,21 +461,21 @@ void drawTree(float x, float y, float scale)
 
     // Canopy dark base
     glColor3f(0.06f, 0.32f, 0.05f);
-    fillCircle(0.0f, 0.2f, 2.4f);
-    fillCircle(-1.7f, -0.3f, 1.9f);
-    fillCircle(1.6f, -0.3f, 1.9f);
-    fillCircle(0.0f, 1.7f, 1.9f);
+    fillCircle(0.0f, 2.2f, 2.4f);
+    fillCircle(-1.7f, 1.7f, 1.9f);
+    fillCircle(1.6f, 1.7f, 1.9f);
+    fillCircle(0.0f, 3.7f, 1.9f);
 
     // Canopy highlights
     glColor3f(0.14f, 0.46f, 0.12f);
-    fillCircle(-0.6f, 1.2f, 1.2f);
-    fillCircle(-2.1f, 0.4f, 0.9f);
-    fillCircle(0.0f, 2.6f, 1.0f);
+    fillCircle(-0.6f, 3.2f, 1.2f);
+    fillCircle(-2.1f, 2.4f, 0.9f);
+    fillCircle(0.0f, 4.6f, 1.0f);
 
     // Lower-right canopy shadow blobs
     glColor3f(0.03f, 0.20f, 0.03f);
-    fillCircle(1.3f, -0.8f, 1.1f);
-    fillCircle(0.4f, -0.5f, 0.8f);
+    fillCircle(1.3f, 1.2f, 1.1f);
+    fillCircle(0.4f, 1.5f, 0.8f);
 
     glPopMatrix();
 }
@@ -854,6 +861,10 @@ void updateFighterJet(int value)
             explosionX = (fighterJetX + fighterJet2X) * 0.5f;
             explosionY = (fighterJetY + fighterJet2Y) * 0.5f;
             explosionRadius = 0.45f;
+            parachuteActive = true;
+            parachuteLanded = false;
+            parachuteX = explosionX;
+            parachuteY = explosionY - 0.4f;
         }
     }
     else
@@ -879,6 +890,18 @@ void updateFighterJet(int value)
         fighterJet2X = -8.0f;
     }
 
+    // Parachute: appears after collision, then drifts and lands over forest.
+    if (parachuteActive && !parachuteLanded)
+    {
+        parachuteX -= 0.07f; // wind drift toward forest
+        parachuteY -= 0.10f; // gradual descent
+        if (parachuteY <= 25.8f)
+        {
+            parachuteY = 25.8f;
+            parachuteLanded = true;
+        }
+    }
+
     glutPostRedisplay();
     glutTimerFunc(30, updateFighterJet, 0);
 }
@@ -897,6 +920,12 @@ void display(void)
     drawSun(0.0, 33.0, 1.5);
     drawClouds();
 
+    // Draw parachute first so blast can appear in front of it.
+    if (parachuteActive)
+    {
+        drawParachute(parachuteX, parachuteY, 0.35f);
+    }
+
     if (!jetCollision)
     {
         drawFighterJet(fighterJetX, fighterJetY, 0.9f, true);
@@ -907,8 +936,6 @@ void display(void)
         drawExplosion(explosionX, explosionY, explosionRadius);
     }
     drawBirds();
-
-    drawParachute();
 
     drawHills();
     forest();
@@ -924,7 +951,22 @@ void display(void)
     glTranslatef(-10.0f, -8.0f, 0.0f);
     drawboat();
     glPopMatrix();
+    drawTree(43.5f, 22.0f, 1.55f);
+
+
     drawHouse();
+
+
+    drawTree(49.5f, 16.0f, 1.55f);
+
+    glPushMatrix();
+
+    glTranslatef(12.0f, -5.0f, 0.0f);
+    drawHouse();
+    glTranslatef(-12.0f, 05.0f, 0.0f);
+    glPopMatrix();
+
+
 
     glFlush();
 }
