@@ -1,11 +1,13 @@
 #include <GL/gl.h>
 #include <GL/glut.h>
 #include <math.h>
+#include <stdlib.h>
 
+bool dayMode = true;
 float boatAngle = 0.0f;
 bool boatReverseX = false;
 float fighterJetX = 56.0f;
-float fighterJetY = 38.0f;
+float fighterJetY = 40.0f;
 float fighterJet2X = -8.0f;
 float fighterJet2Y = 37.5f;
 bool jetCollision = false;
@@ -16,6 +18,8 @@ bool parachuteActive = false;
 bool parachuteLanded = false;
 float parachuteX = 0.0f;
 float parachuteY = 0.0f;
+float boatProgress = 0.0f;
+bool boatMovingForward = true;
 void fillCircle(float cx, float cy, float r);
 void drawGrass(float x, float y, float scale);
 void drawBush(float x, float y, float scale);
@@ -38,6 +42,29 @@ void drawSky()
     glVertex2f(50.0f, 50.0f);
     glVertex2f(0.0f, 50.0f);
     glEnd();
+}
+
+void drawStars(float x1, float y1, float x2, float y2, int count)
+{
+    if (dayMode)
+        return;
+
+    // Fixed seed so stars stay at the same random positions each frame.
+    srand(42);
+
+    glColor3f(1.0f, 0.84f, 0.0f); // golden color
+    glPointSize(3.0f);
+    glBegin(GL_POINTS);
+    for (int i = 0; i < count; i++)
+    {
+        float rx = (float)rand() / (float)RAND_MAX;
+        float ry = (float)rand() / (float)RAND_MAX;
+        float sx = x1 + rx * (x2 - x1);
+        float sy = y1 + ry * (y2 - y1);
+        glVertex2f(sx, sy);
+    }
+    glEnd();
+    glPointSize(1.0f);
 }
 void drawVillageLand()
 {
@@ -314,7 +341,7 @@ void drawParachute(float x, float y, float scale)
 
     glRectd(-1.0f, -2.0f, 1.0f, -3.0f);
 
-    //connect lines to the Circumference of the Ellipse
+    // connect lines to the Circumference of the Ellipse
     glBegin(GL_LINES);
     glVertex2f(-1.8f, -0.8f);
     glVertex2f(-1.0f, -2.0f);
@@ -331,8 +358,6 @@ void drawParachute(float x, float y, float scale)
     glEnd();
     glPopMatrix();
 }
-
-
 
 // draw grass
 void drawGrass(float x, float y, float scale)
@@ -360,7 +385,8 @@ void drawGrass()
     drawGrass(9.0f, 13.1f, 1.0f);
 }
 
-void drawWaves(){
+void drawWaves()
+{
     glColor3f(0.78f, 0.90f, 1.0f);
     glLineWidth(1.5f);
 
@@ -421,8 +447,24 @@ void drawTreeTrunk()
     drawTreeTrunk(12.0f, 22.0f, 0.95f);
 }
 
+float p = -10.0f;
 void drawSun(float cx, float cy, float r)
 {
+    const float xStart = -10.0f;
+    const float xEnd = 53.0f;
+    const float xStep = 0.005f;
+    const float yAmplitude = 8.0f;
+
+    if (p <= xEnd)
+        p = p + xStep;
+    else
+        p = xStart;
+
+    float progress = (p - xStart) / (xEnd - xStart);
+    float yOffset = yAmplitude * sinf(progress * 3.1416f);
+
+    glutPostRedisplay();
+
     int i;
     glColor3f(1.0f, 0.84f, 0.25f);
 
@@ -430,8 +472,8 @@ void drawSun(float cx, float cy, float r)
     for (i = 0; i < 100; i++)
     {
         float angle = 2 * 3.1416f * i / 100;
-        glVertex2f(cx + r * cos(angle),
-                   cy + r * sin(angle));
+        glVertex2f(cx + p + r * cos(angle),
+                   cy + yOffset + r * sin(angle));
     }
     glEnd();
 }
@@ -479,21 +521,41 @@ void drawTree(float x, float y, float scale)
 
     glPopMatrix();
 }
+
+float cl = -10.0f;
+float cl2 = 55.0f;
 void drawClouds()
 {
+    if (cl <= 53)
+        cl = cl + .005;
+    else
+        cl = -10.0f;
+
+    if (cl2 >= -10.0f)
+        cl2 -= 0.005f;
+    else
+        cl2 = 55.0f;
+
+    glutPostRedisplay();
+
     // Cloud group 1 (left sky)
-    glColor3f(0.96f, 0.98f, 1.0f);
-    fillCircle(8.0f, 36.0f, 1.7f);
-    fillCircle(9.8f, 36.4f, 1.5f);
-    fillCircle(11.5f, 36.0f, 1.4f);
-    fillCircle(9.2f, 35.3f, 1.5f);
+    glColor3f(0.94f, 0.98f, 1.0f);
+    fillCircle(cl + 8.0f, 36.0f, 1.7f);
+    fillCircle(cl + 9.8f, 36.4f, 1.5f);
+    fillCircle(cl + 11.5f, 36.0f, 1.4f);
+    fillCircle(cl + 9.2f, 35.3f, 1.5f);
+
+    //fillCircle(cl2 + 33.0f, 35.5f, 1.5f);
+    //fillCircle(cl2 + 34.7f, 35.9f, 1.3f);
+    //fillCircle(cl2 + 36.2f, 35.5f, 1.2f);
+    //fillCircle(cl2 + 34.2f, 34.9f, 1.2f);
 
     // Cloud group 2 (right sky)
     glColor3f(0.94f, 0.97f, 1.0f);
-    fillCircle(33.0f, 35.5f, 1.5f);
-    fillCircle(34.7f, 35.9f, 1.3f);
-    fillCircle(36.2f, 35.5f, 1.2f);
-    fillCircle(34.2f, 34.9f, 1.2f);
+    fillCircle(cl2, 35.5f, 1.5f);
+    fillCircle(cl2+1.7, 35.9f, 1.3f);
+    fillCircle(cl2+3.2, 35.5f, 1.2f);
+    fillCircle(cl2+1.2, 34.9f, 1.2f);
 }
 
 void drawHill(float x, float y, float sx, float sy, float r, float g, float b)
@@ -644,8 +706,6 @@ void forest()
 
     // Ground details on forest floor using reusable helpers.
 
-
-
     drawGrass(2.0f, 13.2f, 0.9f);
     drawGrass(4.5f, 14.1f, 0.85f);
     drawGrass(8.0f, 15.6f, 0.95f);
@@ -708,22 +768,62 @@ void drawboat()
 
     glEnd();
 
-
     glColor3f(0.92f, 0.72f, 0.48f);
     glLineWidth(5);
     glBegin(GL_LINES);
 
     glVertex2d(10, 7.5);
-    glVertex2d(10,15);
+    glVertex2d(10, 15);
+
+    glVertex2d(10.5, 7.5);
+    glVertex2d(10.5, 15);
 
     glEnd();
 
     glColor3f(0.95f, 0.90f, 0.80f);
     glBegin(GL_TRIANGLES);
-    glVertex2d(8, 7);
-    glVertex2d(8, 13);
+    glVertex2d(9.5, 7.5);
+    glVertex2d(9.5, 13);
     glVertex2d(0, 8);
     glEnd();
+
+    /* / (majhi) sitting on the boat
+    glColor3f(0.96f, 0.80f, 0.64f);
+    fillCircle(12.6f, 10.4f, 0.45f); // head
+
+    glColor3f(0.20f, 0.30f, 0.72f);
+    glBegin(GL_POLYGON); // body
+    glVertex2f(12.0f, 9.8f);
+    glVertex2f(13.2f, 9.8f);
+    glVertex2f(13.0f, 8.7f);
+    glVertex2f(12.2f, 8.7f);
+    glEnd();
+
+    glColor3f(0.10f, 0.10f, 0.10f);
+    glLineWidth(2.0f);
+    glBegin(GL_LINES);
+    glVertex2f(12.3f, 8.8f);
+    glVertex2f(11.7f, 8.0f); // left leg
+    glVertex2f(12.9f, 8.8f);
+    glVertex2f(13.6f, 8.1f); // right leg
+    glVertex2f(13.0f, 9.5f);
+    glVertex2f(14.4f, 9.0f); // hand to hold oar
+    glEnd();
+
+    // Oar
+    glColor3f(0.56f, 0.34f, 0.14f);
+    glLineWidth(3.0f);
+    glBegin(GL_LINES);
+    glVertex2f(14.1f, 9.1f);
+    glVertex2f(18.4f, 6.9f);
+    glEnd();
+    glColor3f(0.45f, 0.27f, 0.10f);
+    glBegin(GL_TRIANGLES); // oar paddle
+    glVertex2f(18.4f, 6.9f);
+    glVertex2f(19.1f, 6.6f);
+    glVertex2f(18.7f, 7.4f);
+    glEnd();
+    glLineWidth(1.0f);*/
 }
 
 void rotateboat(unsigned char key, int x, int y)
@@ -742,6 +842,7 @@ void rotateboat(unsigned char key, int x, int y)
     else if (key == 'o' || key == 'O')
     {
         boatReverseX = !boatReverseX; // toggle reverse by x direction
+        boatMovingForward = !boatMovingForward;
     }
     else
     {
@@ -849,9 +950,31 @@ void updateFighterJet(int value)
 {
     (void)value;
 
+    if (boatMovingForward)
+    {
+        boatProgress += 0.0015f;
+        if (boatProgress >= 1.0f)
+        {
+            boatProgress = 1.0f;
+            boatMovingForward = false; // reach right, then reverse
+            boatReverseX = !boatReverseX;
+
+        }
+    }
+    else
+    {
+        boatProgress -= 0.0015f;
+        if (boatProgress <= 0.0f)
+        {
+            boatProgress = 0.0f;
+            boatMovingForward = true; // reach left, move forward again
+            boatReverseX = !boatReverseX;
+        }
+    }
+
     if (!jetCollision)
     {
-        fighterJetX -= 0.35f; // right -> left
+        fighterJetX -= 0.35f;  // right -> left
         fighterJet2X += 0.30f; // left -> right
 
         // Accidental collision in the sky.
@@ -911,9 +1034,9 @@ void display(void)
 
     glClear(GL_COLOR_BUFFER_BIT);
     drawSky();
+    drawStars(0.0f, 28.0f, 50.0f, 49.0f, 600);
 
-
-    glColor3f(146.0f/255.0f, 116.0f/255.0f, 91.0f/255.0f);
+    glColor3f(146.0f / 255.0f, 116.0f / 255.0f, 91.0f / 255.0f);
     drawVillageLand();
 
     // DRAW SUN
@@ -944,19 +1067,42 @@ void display(void)
     drawWaves();
     drawFence();
 
+
+
+
+    const float boatMinX = -10.0f;
+    const float boatMaxX = 50.0f;
+    const float riverSlope = 19.0f / 57.0f;
+
+    float boatX = -20 + (boatMaxX - boatMinX) * boatProgress; // -10 -> 50
+    float boatY = -2.0f + (boatX - boatMinX) * riverSlope;         // নদীর ঢাল ধরে Y
+
+
+
+
+    const float boatTravelX = 28.0f;
+    //const float riverSlope = 19.0f / 57.0f;
+    float boatDx = boatTravelX * boatProgress;
+    float boatDy = boatDx * riverSlope;
+    float boatScale = 1.0f - 0.4f * boatProgress; // 100% -> 60%
+    float baseScaleX = 0.75f;
+    float baseScaleY = 0.75f;
+
     glPushMatrix();
+    glTranslatef(boatX, boatY, 0.0f);
     glTranslatef(10.0f, 8.0f, 0.0f); // scale around boat area
-    glRotatef(boatAngle, 0.0f, 0.0f, 1.0f);
-    glScalef(boatReverseX ? -0.75f : 0.75f, 0.75f, 1.0f);
+    glRotatef(boatAngle, 0.0f, 0.0f, 1.0f);//rotate around z axis
+
+    glScalef(boatReverseX ? -(baseScaleX * boatScale) : (baseScaleX * boatScale),
+             baseScaleY * boatScale, 1.0f);
     glTranslatef(-10.0f, -8.0f, 0.0f);
     drawboat();
     glPopMatrix();
     drawTree(43.5f, 22.0f, 1.55f);
 
-
     drawHouse();
 
-
+    drawTree(48.5f, 22.0f, 1.55f);
     drawTree(49.5f, 16.0f, 1.55f);
 
     glPushMatrix();
@@ -965,8 +1111,6 @@ void display(void)
     drawHouse();
     glTranslatef(-12.0f, 05.0f, 0.0f);
     glPopMatrix();
-
-
 
     glFlush();
 }
@@ -980,13 +1124,8 @@ void init(void)
     glLoadIdentity();
     glOrtho(0.0, 50.0, 0.0, 45.0, -10.0, 10.0);
 }
-/*
- * Declare initial window size, position, and display mode
- * (single buffer and RGBA). Open window with "hello"
- * in its title bar. Call initialization routines.
- * Register callback function to display graphics.
- * Enter main loop and process events.
- */
+
+
 int main(int argc, char **argv)
 {
     glutInit(&argc, argv);
