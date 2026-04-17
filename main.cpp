@@ -20,9 +20,40 @@ float parachuteX = 0.0f;
 float parachuteY = 0.0f;
 float boatProgress = 0.0f;
 bool boatMovingForward = true;
+float treeLeafOffsetX = 0.0f;
+bool treeLeafMovingRight = true;
+float fireflyTwinklePhase = 0.0f;
+float birdXOffset = 0.0f;
+float birdYOffset = 0.0f;
+bool birdsMovingToPeak = true;
+float birdWingAngleDeg = 60.0f;
+bool birdWingOpening = true;
+float moonX = -8.0f;
+float moonPathX = -10.0f;
+float p = -10.0f;
 void fillCircle(float cx, float cy, float r);
 void drawGrass(float x, float y, float scale);
 void drawBush(float x, float y, float scale);
+
+void setRawColor(float r, float g, float b)
+{
+    ::glColor3f(r, g, b);
+}
+
+void setModeColor(float r, float g, float b)
+{
+    if (dayMode)
+    {
+        setRawColor(r, g, b);
+    }
+    else
+    {
+        // Night mode tint: darker and cooler for all objects.
+        setRawColor(r * 0.35f, g * 0.35f, b * 0.50f);
+    }
+}
+
+#define glColor3f(r, g, b) setModeColor((r), (g), (b))
 
 // move anything with the function.
 void moveAny(void (*drawFunc)(), float tx, float ty)
@@ -35,7 +66,14 @@ void moveAny(void (*drawFunc)(), float tx, float ty)
 
 void drawSky()
 {
-    glColor3f(0.53f, 0.81f, 0.98f);
+    if (dayMode)
+    {
+        setRawColor(0.53f, 0.81f, 0.98f); // day sky blue
+    }
+    else
+    {
+        setRawColor(0.04f, 0.07f, 0.18f); // night sky dark navy
+    }
     glBegin(GL_QUADS);
     glVertex2f(0.0f, 28.0f);
     glVertex2f(50.0f, 28.0f);
@@ -43,6 +81,94 @@ void drawSky()
     glVertex2f(0.0f, 50.0f);
     glEnd();
 }
+void drawHalfMoon(){
+    if(dayMode)
+    return;
+
+    const float moonStartX = -8.0f;
+    const float moonEndX = 56.0f;
+    const float moonY = 41.0f;
+    const float moonR = 1.8f;
+    const float moonStep = 0.01f;
+
+    if (moonX <= moonEndX)
+        moonX += moonStep;
+    else
+        moonX = moonStartX;
+
+    setRawColor(0.96f, 0.97f, 1.0f);
+    fillCircle(moonX, moonY, moonR);
+
+    // subtle crescent effect
+    setRawColor(0.04f, 0.07f, 0.18f);
+    fillCircle(moonX + 0.65f, moonY + 0.15f, moonR * 0.82f);
+}
+
+void drawFullMoon(float cx, float cy, float r)
+{
+    if (dayMode)
+        return;
+
+    const float xStart = -10.0f;
+    const float xEnd = 53.0f;
+    const float xStep = 0.025f;
+    const float yAmplitude = 8.0f;
+
+    if (moonPathX <= xEnd)
+    {
+        moonPathX += xStep;
+    }
+    else
+    {
+        dayMode = true;
+        moonPathX = xStart;
+        p = xStart;
+        return;
+    }
+
+
+    float progress = (moonPathX - xStart) / (xEnd - xStart);
+    float yOffset = yAmplitude * sinf(progress * 3.1416f);
+    float moonCx = cx + moonPathX;
+    float moonCy = cy + yOffset;
+
+    // Moon halo effect (same style as sun: 2 outer glow circles).
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    ::glColor4f(0.88f, 0.92f, 1.0f, 0.28f);
+    glBegin(GL_POLYGON);
+    for (int i = 0; i < 100; i++)
+    {
+        float angle = 2 * 3.1416f * i / 100;
+        glVertex2f(moonCx + (r * 1.22f) * cosf(angle),
+                   moonCy + (r * 1.22f) * sinf(angle));
+    }
+    glEnd();
+
+    ::glColor4f(0.82f, 0.88f, 1.0f, 0.18f);
+    glBegin(GL_POLYGON);
+    for (int i = 0; i < 100; i++)
+    {
+        float angle = 2 * 3.1416f * i / 100;
+        glVertex2f(moonCx + (r * 1.52f) * cosf(angle),
+                   moonCy + (r * 1.52f) * sinf(angle));
+    }
+    glEnd();
+    glDisable(GL_BLEND);
+
+    setRawColor(0.96f, 0.97f, 1.0f);
+    fillCircle(moonCx, moonCy, r);
+
+    // Moon spots (kolonk)
+    setRawColor(0.78f, 0.80f, 0.86f);
+    fillCircle(moonCx - 0.45f * r, moonCy + 0.20f * r, 0.20f * r);
+    fillCircle(moonCx + 0.28f * r, moonCy + 0.08f * r, 0.16f * r);
+    fillCircle(moonCx - 0.05f * r, moonCy - 0.30f * r, 0.22f * r);
+
+    setRawColor(0.70f, 0.73f, 0.80f);
+    fillCircle(moonCx + 0.40f * r, moonCy - 0.18f * r, 0.12f * r);
+}
+
 
 void drawStars(float x1, float y1, float x2, float y2, int count)
 {
@@ -52,8 +178,8 @@ void drawStars(float x1, float y1, float x2, float y2, int count)
     // Fixed seed so stars stay at the same random positions each frame.
     srand(42);
 
-    glColor3f(1.0f, 0.84f, 0.0f); // golden color
-    glPointSize(3.0f);
+    setRawColor(1.0f, 0.84f, 0.0f); // golden color
+    glPointSize(1.0f);
     glBegin(GL_POINTS);
     for (int i = 0; i < count; i++)
     {
@@ -88,9 +214,13 @@ void drawVillageLand()
 
     // Bush clusters on village land.
     drawBush(20.0f, 2.2f, 1.0f);
+    drawBush(24.5f, 3.8f, 0.92f);
     drawBush(30.0f, 5.8f, 1.2f);
+    drawBush(35.2f, 7.9f, 0.98f);
     drawBush(41.0f, 10.8f, 1.1f);
+    drawBush(45.7f, 12.9f, 0.93f);
     drawBush(50.0f, 15.6f, 0.95f);
+    drawBush(53.2f, 18.2f, 0.88f);
 }
 
 void drawVillageRoads()
@@ -302,29 +432,59 @@ void drawFench()
 // draw birds
 void drawBirds()
 {
+    if (!dayMode)
+        return;
+
     glColor3f(0.12f, 0.12f, 0.12f);
 
-    auto drawBird = [](float x, float y, float wing)
+    auto drawBird = [](float x, float y, float wing, float angleDeg)
     {
-        glBegin(GL_LINE_STRIP);
-        glVertex2f(x - wing, y);
-        glVertex2f(x, y + wing * 0.55f);
-        glVertex2f(x + wing, y);
+        const float pi = 3.14159265358979323846f;
+        const float halfAngleRad = (angleDeg * 0.5f) * (pi / 180.0f);
+        const float dx = wing * cosf(halfAngleRad);
+        const float dy = wing * sinf(halfAngleRad);
+
+        glBegin(GL_LINES);
+        glVertex2f(x, y);
+        glVertex2f(x - dx, y + dy);
+        glVertex2f(x, y);
+        glVertex2f(x + dx, y + dy);
         glEnd();
     };
 
     glLineWidth(2.0f);
-    drawBird(21.0f, 34.8f, 0.7f);
-    drawBird(22.8f, 35.4f, 0.55f);
-    drawBird(24.3f, 34.9f, 0.65f);
-    drawBird(26.0f, 35.7f, 0.6f);
-    drawBird(27.5f, 35.1f, 0.5f);
+    glPushMatrix();
+    glTranslatef(birdXOffset, birdYOffset, 0.0f);
+    drawBird(31.0f, 24.8f, 0.7f, birdWingAngleDeg);
+    drawBird(32.8f, 25.4f, 0.55f, birdWingAngleDeg);
+    drawBird(34.3f, 24.9f, 0.65f, birdWingAngleDeg);
+    drawBird(36.0f, 25.7f, 0.6f, birdWingAngleDeg);
+    drawBird(37.5f, 25.1f, 0.5f, birdWingAngleDeg);
+    glPopMatrix();
     glLineWidth(1.0f);
 }
 
 // draw some stones
 void drawStones()
-{
+{   
+//1st stone
+    glColor3f(0.38f, 0.40f, 0.42f);
+    drawEllipse(31.5f, 5.8f, 1.5f, 2.50f);
+    glColor3f(0.50f, 0.52f, 0.54f);
+    fillCircle(32.0f, 7.0f, 0.60f);
+
+//2nd stone
+    glColor3f(0.46f, 0.46f, 0.48f);
+    drawEllipse(32.5f, 4.8f, 1.5f, 2.50f);
+    glColor3f(0.56f, 0.56f, 0.58f);
+    fillCircle(33.0f, 6.0f, 0.60f);
+
+//3rd stone
+    glColor3f(0.40f, 0.42f, 0.44f);
+    drawEllipse(30.5f, 4.8f, 1.5f, 2.50f);
+    glColor3f(0.52f, 0.52f, 0.54f);
+    fillCircle(31.0f, 6.0f, 0.60f);
+    
 }
 
 void drawParachute(float x, float y, float scale)
@@ -387,22 +547,42 @@ void drawGrass()
 
 void drawWaves()
 {
+    const float phase = fireflyTwinklePhase;
+    const float bandGap = 2.3f; // equal spacing between ripple lines
+
     glColor3f(0.78f, 0.90f, 1.0f);
-    glLineWidth(1.5f);
+    glLineWidth(1.0f);
 
-    // Small diagonal ripples that follow river flow.
-    for (float x = 8.0f; x <= 50.0f; x += 6.0f)
-    {
-        float yMid = 0.52f * (x - 11.0f) + 2.4f; // around lower river band
-        drawLine(x - 1.0f, yMid - 0.25f, x, yMid + 0.10f, 1.2f);
-        drawLine(x, yMid + 0.10f, x + 1.0f, yMid - 0.25f, 1.2f);
-    }
+    // 4 ripple lines with uniform distance between bands.
+    // Build ripples along river center-flow so V-shapes stay parallel to river direction.
+    const float centerSlope = 0.5f * ((24.0f / 46.0f) + (19.0f / 57.0f)); // avg of both river banks
+    const float tx = 1.0f;
+    const float ty = centerSlope;
+    const float tLen = sqrtf(tx * tx + ty * ty);
+    const float ux = tx / tLen; // unit tangent (river flow direction)
+    const float uy = ty / tLen;
+    const float nx = -uy;       // unit normal (across river)
+    const float ny = ux;
 
-    for (float x = 5.0f; x <= 47.0f; x += 7.0f)
+    for (int band = 0; band < 4; ++band)
     {
-        float yMid = 12.0f + (19.0f / 57.0f) * x - 2.4f; // around upper river band
-        drawLine(x - 0.9f, yMid - 0.2f, x, yMid + 0.15f, 1.2f);
-        drawLine(x, yMid + 0.15f, x + 0.9f, yMid - 0.2f, 1.2f);
+        float bandOffset = (band - 1.5f) * bandGap;
+        for (float x = 0.0f; x <= 50.0f; x += 3.2f)
+        {
+            float xShift = 0.36f * cosf(phase * 1.3f + x * 0.10f + band * 0.55f);
+            float yFlow = 0.22f * sinf(phase * 1.6f + x * 0.22f + band * 0.40f);
+            float yMid = 3.13f + centerSlope * x + bandOffset + yFlow;
+
+            // Shift ripple center slightly along normal to keep band spacing perpendicular to flow.
+            float cx = x + xShift + nx * bandOffset * 0.35f;
+            float cy = yMid + ny * bandOffset * 0.35f;
+
+            // V-shape arms: mostly along flow (tangent) with slight normal spread.
+            const float armLen = 0.45f;
+            const float spread = 0.20f;
+            drawLine(cx - (ux * armLen + nx * spread), cy - (uy * armLen + ny * spread), cx, cy, 1.0f);
+            drawLine(cx, cy, cx + (ux * armLen - nx * spread), cy + (uy * armLen - ny * spread), 1.0f);
+        }
     }
 
     glLineWidth(1.0f);
@@ -447,33 +627,74 @@ void drawTreeTrunk()
     drawTreeTrunk(12.0f, 22.0f, 0.95f);
 }
 
-float p = -10.0f;
 void drawSun(float cx, float cy, float r)
 {
+    if (!dayMode)
+        return;
     const float xStart = -10.0f;
     const float xEnd = 53.0f;
-    const float xStep = 0.005f;
+    const float xStep = 0.0025f;
     const float yAmplitude = 8.0f;
 
     if (p <= xEnd)
+    {
         p = p + xStep;
+    }
     else
+    {
+        dayMode = false;
         p = xStart;
+        moonPathX = xStart;
+        return;
+    }
+
 
     float progress = (p - xStart) / (xEnd - xStart);
     float yOffset = yAmplitude * sinf(progress * 3.1416f);
+    float sunCx = cx + p;
+    float sunCy = cy + yOffset;
 
     glutPostRedisplay();
 
     int i;
-    glColor3f(1.0f, 0.84f, 0.25f);
 
+    // Soft outer glow behind the sun.
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    ::glColor4f(1.0f, 1.f, 1.f, 0.52f);
     glBegin(GL_POLYGON);
     for (i = 0; i < 100; i++)
     {
         float angle = 2 * 3.1416f * i / 100;
-        glVertex2f(cx + p + r * cos(angle),
-                   cy + yOffset + r * sin(angle));
+        glVertex2f(sunCx + (r * 1.2f) * cos(angle),
+                   sunCy + (r * 1.2f) * sin(angle));
+    }
+    glEnd();
+    glDisable(GL_BLEND);
+
+
+    // Soft outer glow behind the sun.
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    ::glColor4f(1.0f, 1.f, 1.f, 0.32f);
+    glBegin(GL_POLYGON);
+    for (i = 0; i < 100; i++)
+    {
+        float angle = 2 * 3.1416f * i / 100;
+        glVertex2f(sunCx + (r * 1.5f) * cos(angle),
+                   sunCy + (r * 1.5f) * sin(angle));
+    }
+    glEnd();
+    glDisable(GL_BLEND);
+
+    // Main sun circle
+    glColor3f(1.0f, 0.84f, 0.25f);
+    glBegin(GL_POLYGON);
+    for (i = 0; i < 100; i++)
+    {
+        float angle = 2 * 3.1416f * i / 100;
+        glVertex2f(sunCx + r * cos(angle),
+                   sunCy + r * sin(angle));
     }
     glEnd();
 }
@@ -501,6 +722,10 @@ void drawTree(float x, float y, float scale)
     fillCircle(-0.55f, -4.5f, 0.28f);
     fillCircle(0.55f, -4.5f, 0.28f);
 
+    // Leaf sway animation: +1 (right) then -1 (left) on X axis.
+    glPushMatrix();
+    glTranslatef(treeLeafOffsetX, 0.0f, 0.0f);
+
     // Canopy dark base
     glColor3f(0.06f, 0.32f, 0.05f);
     fillCircle(0.0f, 2.2f, 2.4f);
@@ -520,12 +745,15 @@ void drawTree(float x, float y, float scale)
     fillCircle(0.4f, 1.5f, 0.8f);
 
     glPopMatrix();
+    glPopMatrix();
 }
 
 float cl = -10.0f;
 float cl2 = 55.0f;
 void drawClouds()
 {
+    if (!dayMode)
+        return;
     if (cl <= 53)
         cl = cl + .005;
     else
@@ -655,6 +883,12 @@ void drawHouse()
     glVertex2d(44, 15.5);
     glEnd();
 
+    // window color changes by mode
+    if (dayMode)
+        glColor3f(0.4f, 0.28f, 0.12f);
+    else
+        glColor3f(1.0f/ 0.35f, 1.f/ 0.35f, 0.0f/0.35f);
+
     // window
     glBegin(GL_QUADS);
     glVertex2d(37, 13.7);
@@ -663,10 +897,55 @@ void drawHouse()
     glVertex2d(37, 16.0);
     glEnd();
 
+    if (dayMode)
+        glColor3f(0.22f, 0.14f, 0.08f);
+        glLineWidth(2.0f);
+        glBegin(GL_LINE_LOOP);
+        
+        glVertex2d(37, 16.0);
+        glVertex2d(37, 13.7);
+        glVertex2d(40, 13.0);
+        glVertex2d(40, 15.30);
+        
+        glEnd();
+        glLineWidth(1.0f);
+
+    if (!dayMode){
+        glColor3f(1.0f, 1.0f, 0.0f);
+        glBegin(GL_QUADS);
+
+        glVertex2d(40, 13.00);
+        glVertex2d(37, 13.70);
+        glVertex2d(35.5, 6.70);
+        glVertex2d(41, 5.0);
+        glEnd();
+    }
+
     // window grills
+    glColor3f(0.22f, 0.14f, 0.08f);
+    glLineWidth(1.5f);
     glBegin(GL_LINES);
+    // vertical grill
+
+    glVertex2f(37.5f, 13.55f);
+    glVertex2f(37.5f, 15.85f);
+
+    glVertex2f(38.5f, 13.35f);
+    glVertex2f(38.5f, 15.65f);
+
+    glVertex2f(38.f, 13.45f);
+    glVertex2f(38.f, 15.75f);
+
+    glVertex2f(39.f, 13.25f);
+    glVertex2f(39.f, 15.55f);
+
+    glVertex2f(39.5f, 13.15f);
+    glVertex2f(39.5f, 15.45f);
+
+
 
     glEnd();
+    glLineWidth(1.0f);
 
     // root
     glBegin(GL_QUADS);
@@ -695,6 +974,60 @@ void scaleAny(void (*drawFunc)(), float sx, float sy)
     glPopMatrix();
 }
 
+void drawFirefliesInForestTriangle(float x1, float y1, float x2, float y2, float x3, float y3, int count)
+{
+    if (dayMode)
+        return;
+
+    // Fixed seed keeps random fireflies stable across frames.
+    srand(1337);
+
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    for (int i = 0; i < count; i++)
+    {
+        float r1 = (float)rand() / (float)RAND_MAX;
+        float r2 = (float)rand() / (float)RAND_MAX;
+        float sr1 = sqrtf(r1);
+        float pulse = (sinf(fireflyTwinklePhase + i * 1.3f) + 1.0f) * 0.5f;
+
+        // Uniform random point inside triangle via barycentric coordinates.
+        float px = (1.0f - sr1) * x1 + sr1 * (1.0f - r2) * x2 + sr1 * r2 * x3;
+        float py = (1.0f - sr1) * y1 + sr1 * (1.0f - r2) * y2 + sr1 * r2 * y3;
+        float driftX = 0.20f * sinf(fireflyTwinklePhase * 0.9f + i * 0.73f);
+        float driftY = 0.12f * cosf(fireflyTwinklePhase * 1.1f + i * 0.51f);
+        px += driftX;
+        py += driftY;
+
+        // Glowing aura (pulsing)
+        ::glColor4f(0.75f, 0.95f, 0.25f, 0.15f + 0.25f * pulse);
+        fillCircle(px, py, 0.05f + 0.10f * pulse);
+    }
+    glDisable(GL_BLEND);
+
+    // Bright core
+    srand(1337);
+    setRawColor(0.85f, 1.0f, 0.40f);
+    glPointSize(1.50f);
+    glBegin(GL_POINTS);
+    for (int i = 0; i < count; i++)
+    {
+        float r1 = (float)rand() / (float)RAND_MAX;
+        float r2 = (float)rand() / (float)RAND_MAX;
+        float sr1 = sqrtf(r1);
+
+        float px = (1.0f - sr1) * x1 + sr1 * (1.0f - r2) * x2 + sr1 * r2 * x3;
+        float py = (1.0f - sr1) * y1 + sr1 * (1.0f - r2) * y2 + sr1 * r2 * y3;
+        float driftX = 0.20f * sinf(fireflyTwinklePhase * 0.9f + i * 0.73f);
+        float driftY = 0.12f * cosf(fireflyTwinklePhase * 1.1f + i * 0.51f);
+        px += driftX;
+        py += driftY;
+        glVertex2f(px, py);
+    }
+    glEnd();
+    glPointSize(1.0f);
+}
+
 void forest()
 {
     glColor3f(0.18f, 0.42f, 0.20f);
@@ -703,6 +1036,7 @@ void forest()
     glVertex2f(57.0, 31.0);
     glVertex2f(0.0, 28.0);
     glEnd();
+    drawFirefliesInForestTriangle(0.0f, 12.0f, 57.0f, 31.0f, 0.0f, 28.0f, 200);
 
     // Ground details on forest floor using reusable helpers.
 
@@ -722,6 +1056,50 @@ void forest()
     drawGrass(44.0f, 27.9f, 0.74f);
     drawGrass(48.0f, 29.2f, 0.78f);
     drawGrass(52.0f, 30.8f, 0.70f);
+    // Irregular/random-looking extra grass tufts.
+    drawGrass(1.3f, 12.8f, 0.72f);
+    drawGrass(3.7f, 15.0f, 0.64f);
+    drawGrass(6.4f, 14.4f, 0.79f);
+    drawGrass(9.6f, 16.9f, 0.68f);
+    drawGrass(11.4f, 15.8f, 0.73f);
+    drawGrass(15.3f, 19.5f, 0.66f);
+    drawGrass(18.7f, 19.7f, 0.83f);
+    drawGrass(22.1f, 21.9f, 0.69f);
+    drawGrass(25.6f, 23.3f, 0.75f);
+    drawGrass(29.3f, 22.8f, 0.62f);
+    drawGrass(31.1f, 25.1f, 0.71f);
+    drawGrass(34.8f, 24.4f, 0.67f);
+    drawGrass(38.9f, 27.4f, 0.74f);
+    drawGrass(42.6f, 26.8f, 0.63f);
+    drawGrass(46.2f, 28.8f, 0.69f);
+    drawGrass(49.1f, 30.0f, 0.61f);
+    drawGrass(53.4f, 30.1f, 0.66f);
+    // Wider scatter across the full forest triangle.
+    drawGrass(0.8f, 20.9f, 0.58f);
+    drawGrass(2.6f, 23.7f, 0.62f);
+    drawGrass(4.2f, 25.2f, 0.55f);
+    drawGrass(5.9f, 19.6f, 0.60f);
+    drawGrass(7.6f, 21.8f, 0.57f);
+    drawGrass(9.1f, 24.6f, 0.63f);
+    drawGrass(10.8f, 26.5f, 0.56f);
+    drawGrass(13.4f, 20.6f, 0.61f);
+    drawGrass(16.1f, 22.5f, 0.58f);
+    drawGrass(18.2f, 24.1f, 0.64f);
+    drawGrass(21.4f, 26.0f, 0.59f);
+    drawGrass(23.7f, 27.3f, 0.55f);
+    drawGrass(26.4f, 24.8f, 0.66f);
+    drawGrass(28.7f, 26.7f, 0.60f);
+    drawGrass(30.9f, 28.4f, 0.57f);
+    drawGrass(33.6f, 26.1f, 0.63f);
+    drawGrass(35.8f, 27.9f, 0.56f);
+    drawGrass(38.1f, 29.4f, 0.61f);
+    drawGrass(40.7f, 28.1f, 0.58f);
+    drawGrass(43.2f, 29.8f, 0.64f);
+    drawGrass(45.6f, 30.7f, 0.55f);
+    drawGrass(47.9f, 30.1f, 0.59f);
+    drawGrass(50.2f, 31.2f, 0.57f);
+    drawGrass(52.6f, 31.6f, 0.60f);
+    drawGrass(54.3f, 31.0f, 0.54f);
 
     // Layered trees with roots kept inside the triangle area.
 
@@ -737,6 +1115,9 @@ void forest()
     drawTree(34.0f, 29.3f, 0.56f);
     drawTree(41.0f, 31.6f, 0.54f);
     drawTree(48.0f, 31.8f, 0.52f);
+
+    drawFirefliesInForestTriangle(0.0f, 12.0f, 57.0f, 31.0f, 0.0f, 28.0f, 70);
+
 }
 
 void drawboat()
@@ -844,6 +1225,10 @@ void rotateboat(unsigned char key, int x, int y)
         boatReverseX = !boatReverseX; // toggle reverse by x direction
         boatMovingForward = !boatMovingForward;
     }
+    else if (key == 'm' || key == 'M')
+    {
+        dayMode = !dayMode;
+    }
     else
     {
         return;
@@ -884,6 +1269,8 @@ void controlJetY(int key, int x, int y)
 
 void drawFighterJet(float x, float y, float scale, bool faceLeft)
 {
+    if (!dayMode)
+        return;
     glPushMatrix();
     glTranslatef(x, y, 0.0f);
     glScalef(faceLeft ? -scale : scale, scale, 1.0f);
@@ -949,6 +1336,78 @@ void drawExplosion(float x, float y, float r)
 void updateFighterJet(int value)
 {
     (void)value;
+    const float birdTargetXOffset = -30.0f;
+    const float birdBaseYOffset = 0.0f;
+    const float birdTargetYOffset = 50.0f - 25.7f; // y -> ymax for top-most bird
+    const float minWingAngleDeg = 0.0f;
+    const float maxWingAngleDeg = 120.0f;
+
+    fireflyTwinklePhase += 0.05f;
+    if (fireflyTwinklePhase > 2.0f * 3.1416f)
+    {
+        fireflyTwinklePhase -= 2.0f * 3.1416f;
+    }
+
+    if (birdsMovingToPeak)
+    {
+        birdXOffset -= 0.05f;
+        birdYOffset += 0.07f;
+        if (birdXOffset <= birdTargetXOffset || birdYOffset >= birdTargetYOffset)
+        {
+            birdXOffset = birdTargetXOffset;
+            birdYOffset = birdTargetYOffset;
+            birdsMovingToPeak = false;
+        }
+    }
+    else
+    {
+        birdXOffset += 0.05f;
+        birdYOffset -= 0.07f;
+        if (birdXOffset >= 0.0f || birdYOffset <= birdBaseYOffset)
+        {
+            birdXOffset = 0.0f;
+            birdYOffset = birdBaseYOffset;
+            birdsMovingToPeak = true;
+        }
+    }
+
+    if (birdWingOpening)
+    {
+        birdWingAngleDeg += 4.0f;
+        if (birdWingAngleDeg >= maxWingAngleDeg)
+        {
+            birdWingAngleDeg = maxWingAngleDeg;
+            birdWingOpening = false;
+        }
+    }
+    else
+    {
+        birdWingAngleDeg -= 4.0f;
+        if (birdWingAngleDeg <= minWingAngleDeg)
+        {
+            birdWingAngleDeg = minWingAngleDeg;
+            birdWingOpening = true;
+        }
+    }
+
+    if (treeLeafMovingRight)
+    {
+        treeLeafOffsetX += 0.01f;
+        if (treeLeafOffsetX >= .20f)
+        {
+            treeLeafOffsetX = .20f;
+            treeLeafMovingRight = false;
+        }
+    }
+    else
+    {
+        treeLeafOffsetX -= 0.01f;
+        if (treeLeafOffsetX <= -.20f)
+        {
+            treeLeafOffsetX = -.20f;
+            treeLeafMovingRight = true;
+        }
+    }
 
     if (boatMovingForward)
     {
@@ -972,25 +1431,40 @@ void updateFighterJet(int value)
         }
     }
 
-    if (!jetCollision)
+    // Day mode controls jet movement and possible new collisions.
+    if (dayMode)
     {
-        fighterJetX -= 0.35f;  // right -> left
-        fighterJet2X += 0.30f; // left -> right
-
-        // Accidental collision in the sky.
-        if (fabsf(fighterJetX - fighterJet2X) < 1.2f && fabsf(fighterJetY - fighterJet2Y) < 1.0f)
+        if (!jetCollision)
         {
-            jetCollision = true;
-            explosionX = (fighterJetX + fighterJet2X) * 0.5f;
-            explosionY = (fighterJetY + fighterJet2Y) * 0.5f;
-            explosionRadius = 0.45f;
-            parachuteActive = true;
-            parachuteLanded = false;
-            parachuteX = explosionX;
-            parachuteY = explosionY - 0.4f;
+            fighterJetX -= 0.35f;  // right -> left
+            fighterJet2X += 0.30f; // left -> right
+
+            // Accidental collision in the sky (day mode only).
+            if (fabsf(fighterJetX - fighterJet2X) < 1.2f && fabsf(fighterJetY - fighterJet2Y) < 1.0f)
+            {
+                jetCollision = true;
+                explosionX = (fighterJetX + fighterJet2X) * 0.5f;
+                explosionY = (fighterJetY + fighterJet2Y) * 0.5f;
+                explosionRadius = 0.45f;
+                parachuteActive = true;
+                parachuteLanded = false;
+                parachuteX = explosionX;
+                parachuteY = explosionY - 0.4f;
+            }
+        }
+
+        if (fighterJetX < -10.0f)
+        {
+            fighterJetX = 56.0f;
+        }
+        if (fighterJet2X > 56.0f)
+        {
+            fighterJet2X = -8.0f;
         }
     }
-    else
+
+    // Once collision starts, explosion should complete even if night begins.
+    if (jetCollision)
     {
         explosionRadius += 0.22f;
         if (explosionRadius > 2.8f)
@@ -1004,16 +1478,7 @@ void updateFighterJet(int value)
         }
     }
 
-    if (fighterJetX < -10.0f)
-    {
-        fighterJetX = 56.0f;
-    }
-    if (fighterJet2X > 56.0f)
-    {
-        fighterJet2X = -8.0f;
-    }
-
-    // Parachute: appears after collision, then drifts and lands over forest.
+    // Parachute keeps moving regardless of day/night.
     if (parachuteActive && !parachuteLanded)
     {
         parachuteX -= 0.07f; // wind drift toward forest
@@ -1031,13 +1496,26 @@ void updateFighterJet(int value)
 
 void display(void)
 {
-
+    if (dayMode)
+    {
+        glClearColor(0.53f, 0.81f, 0.98f, 1.0f); // day background
+    }
+    else
+    {
+        glClearColor(0.02f, 0.03f, 0.10f, 1.0f); // night background
+    }
     glClear(GL_COLOR_BUFFER_BIT);
     drawSky();
-    drawStars(0.0f, 28.0f, 50.0f, 49.0f, 600);
+    drawStars(0.0f, 28.0f, 50.0f, 49.0f, 200);
+    //drawHalfMoon();
+    drawFullMoon(0.0f, 33.0f, 1.8f);
 
     glColor3f(146.0f / 255.0f, 116.0f / 255.0f, 91.0f / 255.0f);
     drawVillageLand();
+    drawStones();
+    glColor3f(0.45f, 0.45f, 0.47f);
+    
+
 
     // DRAW SUN
     drawSun(0.0, 33.0, 1.5);
@@ -1080,10 +1558,6 @@ void display(void)
 
 
 
-    const float boatTravelX = 28.0f;
-    //const float riverSlope = 19.0f / 57.0f;
-    float boatDx = boatTravelX * boatProgress;
-    float boatDy = boatDx * riverSlope;
     float boatScale = 1.0f - 0.4f * boatProgress; // 100% -> 60%
     float baseScaleX = 0.75f;
     float baseScaleY = 0.75f;
@@ -1111,6 +1585,9 @@ void display(void)
     drawHouse();
     glTranslatef(-12.0f, 05.0f, 0.0f);
     glPopMatrix();
+
+    drawFirefliesInForestTriangle(11.0f, 0.0f, 57.0f, 0.0f, 57.0f, 28.0f, 40);
+
 
     glFlush();
 }
