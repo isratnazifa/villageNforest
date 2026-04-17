@@ -2,8 +2,10 @@
 #include <GL/glut.h>
 #include <math.h>
 #include <stdlib.h>
+#include "home.cpp"
 
 bool dayMode = true;
+bool showHomeScreen = true;
 float boatAngle = 0.0f;
 bool boatReverseX = false;
 float fighterJetX = 56.0f;
@@ -34,6 +36,7 @@ float p = -10.0f;
 void fillCircle(float cx, float cy, float r);
 void drawGrass(float x, float y, float scale);
 void drawBush(float x, float y, float scale);
+void drawHomeScreen();
 
 void setRawColor(float r, float g, float b)
 {
@@ -466,7 +469,7 @@ void drawBirds()
 
 // draw some stones
 void drawStones()
-{   
+{
 //1st stone
     glColor3f(0.38f, 0.40f, 0.42f);
     drawEllipse(31.5f, 5.8f, 1.5f, 2.50f);
@@ -484,7 +487,7 @@ void drawStones()
     drawEllipse(30.5f, 4.8f, 1.5f, 2.50f);
     glColor3f(0.52f, 0.52f, 0.54f);
     fillCircle(31.0f, 6.0f, 0.60f);
-    
+
 }
 
 void drawParachute(float x, float y, float scale)
@@ -901,12 +904,12 @@ void drawHouse()
         glColor3f(0.22f, 0.14f, 0.08f);
         glLineWidth(2.0f);
         glBegin(GL_LINE_LOOP);
-        
+
         glVertex2d(37, 16.0);
         glVertex2d(37, 13.7);
         glVertex2d(40, 13.0);
         glVertex2d(40, 15.30);
-        
+
         glEnd();
         glLineWidth(1.0f);
 
@@ -1212,6 +1215,16 @@ void rotateboat(unsigned char key, int x, int y)
     (void)x;
     (void)y;
 
+    if (showHomeScreen)
+    {
+        if (key == ' ')
+        {
+            showHomeScreen = false;
+            glutPostRedisplay();
+        }
+        return;
+    }
+
     if (key == 'l' || key == 'L')
     {
         boatAngle += 10.0f; // left rotation
@@ -1228,6 +1241,10 @@ void rotateboat(unsigned char key, int x, int y)
     else if (key == 'm' || key == 'M')
     {
         dayMode = !dayMode;
+    }
+    else if (key == 27) // ESC key
+    {
+        exit(0);
     }
     else
     {
@@ -1336,6 +1353,12 @@ void drawExplosion(float x, float y, float r)
 void updateFighterJet(int value)
 {
     (void)value;
+    if (showHomeScreen)
+    {
+        glutPostRedisplay();
+        glutTimerFunc(30, updateFighterJet, 0);
+        return;
+    }
     const float birdTargetXOffset = -30.0f;
     const float birdBaseYOffset = 0.0f;
     const float birdTargetYOffset = 50.0f - 25.7f; // y -> ymax for top-most bird
@@ -1496,6 +1519,12 @@ void updateFighterJet(int value)
 
 void display(void)
 {
+    if (showHomeScreen)
+    {
+        drawHomeScreen();
+        return;
+    }
+
     if (dayMode)
     {
         glClearColor(0.53f, 0.81f, 0.98f, 1.0f); // day background
@@ -1514,7 +1543,7 @@ void display(void)
     drawVillageLand();
     drawStones();
     glColor3f(0.45f, 0.45f, 0.47f);
-    
+
 
 
     // DRAW SUN
